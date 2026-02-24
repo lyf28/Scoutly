@@ -1,24 +1,25 @@
 import os
+import asyncio
 from fastapi import FastAPI, Request, HTTPException
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, PostbackEvent
 from dotenv import load_dotenv
 
 # Import our custom modules
 from config_loader import ConfigLoader
 from scout_agent import ScoutAgent
+from ui_generator import generate_scout_flex
 
 load_dotenv()
 
 app = FastAPI()
 
-# Initialize LINE API with environment variables
+# Initialize LINE API
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
 
-@app.post("/callback")
-async def run_agent_and_reply(user_id, reply_token, domain="aiops"):
+async def run_agent_and_reply(user_id: str, domain: str = "aiops"):
     """
     Background task to run the agent and send the result via push message.
     """
@@ -27,38 +28,59 @@ async def run_agent_and_reply(user_id, reply_token, domain="aiops"):
         config = loader.load_config(domain)
         agent = ScoutAgent(config)
         
-        # This takes 30-60 seconds
-        result = await agent.run_discovery()
+        # Phase 1: Discovery (Returns JSON string)
+        result_json = await agent.run_discovery()
         
-        # After discovery, we use 'push_message' because the reply_token will expire
-        line_bot_api.push_message(
-            user_id,
-            TextSendMessage(text=f"🔍 Scouting Report for {domain.upper()}:\n\n{result}")
-        )
+        # Convert JSON to Flex Message UI
+        flex_msg = generate_scout_flex(domain.upper(), result_json)
+        
+        # Push the elegant UI to the user
+        line_bot_api.push_message(user_id, flex_msg)
     except Exception as e:
         line_bot_api.push_message(
-            user_id,
-            TextSendMessage(text=f"❌ An error occurred: {str(e)}")
+            user_id, 
+            TextSendMessage(text=f"❌ Error during {domain} scouting: {str(e)}")
         )
+
+@app.post("/callback")
+async def callback(request: Request):
+    """
+    Main entry point for LINE webhook events.
+    """
+    signature = request.headers.get('X-Line-Signature')
+    body = await request.body()
+    
+    try:
+        handler.handle(body.decode('utf-8'), signature)
+    except InvalidSignatureError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+    
+    return 'OK'
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+    """
+    Handles user text commands.
+    """
     user_text = event.message.text
     user_id = event.source.user_id
     
     if user_text.lower() == "scout aiops":
-        # 1. Reply immediately to satisfy LINE's timeout constraint
+        # Reply immediately to avoid LINE timeout
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text="🚀 Agent dispatched! I'll send you the report once it's ready.")
         )
-        
-        # 2. Start the agent in the background
-        # We use the running event loop to create a background task
-        loop = asyncio.get_event_loop()
-        loop.create_task(run_agent_and_reply(user_id, event.reply_token))
+        # Offload the heavy work to a background task
+        asyncio.create_task(run_agent_and_reply(user_id, "aiops"))
     else:
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text="Welcome! Type 'scout aiops' to start monitoring.")
         )
+
+# NOTE: We will add @handler.add(PostbackEvent) here in the next step to handle "Deep Dive" buttons
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -20,28 +20,24 @@ class ScoutAgent:
 
     async def run_discovery(self):
         """
-        Phase 1: Discover titles and links. 
-        The agent reasons in English for precision but outputs in Traditional Chinese for users.
+        Phase 1: Discover articles and return structured JSON data.
         """
-        # Dynamically construct the prompt using domain configuration
+        # Force the LLM to return a valid JSON list of dictionaries
         task_description = (
-            f"Navigate to {self.config['sources'][0]['url']} and identify the latest articles "
-            f"matching the goal: {self.config['scouting_logic']['discovery_goal']}. "
-            f"Extract the top 5 article titles and their corresponding URLs. "
-            f"IMPORTANT: Please provide the titles in Traditional Chinese."
+            f"Navigate to {self.config['sources'][0]['url']} and find the latest articles "
+            f"related to: {self.config['scouting_logic']['discovery_goal']}. "
+            "Extract the top 5 articles. "
+            "Return the result ONLY as a JSON list with keys: 'title' and 'url'. "
+            "The 'title' MUST be in Traditional Chinese."
         )
 
         try:
-            agent = Agent(
-                task=task_description,
-                llm=self.llm,
-            )
-            # Run the agent and capture the result
+            agent = Agent(task=task_description, llm=self.llm)
             history = await agent.run()
-            # In browser-use, history.final_result contains the LLM's last response
+            # The result is now a string representing a JSON list
             return history.final_result()
         except Exception as e:
-            return f"An error occurred during discovery: {str(e)}"
+            raise Exception(f"Discovery failed: {str(e)}")
 
     async def run_summary(self, url: str):
         """
