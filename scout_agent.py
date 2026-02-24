@@ -1,5 +1,6 @@
 import os
 import asyncio
+import langchain_core
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from browser_use import Agent
@@ -11,16 +12,18 @@ load_dotenv()
 class ScoutAgent:
     def __init__(self, domain_config):
         self.config = domain_config
-        # Initialize the LLM
-        llm = ChatOpenAI(model="gpt-4o")
         
-        # --- Fix for 'ChatOpenAI' object has no attribute 'provider' ---
-        # Manually inject the provider attribute that browser-use expects
-        if not hasattr(llm, 'provider'):
-            llm.provider = 'openai' 
-        # --------------------------------------------------------------
+        self.llm = ChatOpenAI(
+            model="gpt-4o",
+            model_kwargs={"extra_body": {}} 
+        )
         
-        self.llm = llm
+        class WrappedLLM(ChatOpenAI):
+            @property
+            def provider(self):
+                return "openai"
+
+        self.llm = WrappedLLM(model="gpt-4o")
 
     async def run_discovery(self):
         """
