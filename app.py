@@ -1,5 +1,6 @@
 import os
 import asyncio
+import subprocess
 from fastapi import FastAPI, Request, HTTPException
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
@@ -59,6 +60,19 @@ async def run_summary_and_reply(user_id: str, url: str):
         )
     except Exception as e:
         line_bot_api.push_message(user_id, TextSendMessage(text=f"❌ Summary Error: {str(e)}"))
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    Ensure Playwright browsers are installed on startup.
+    This handles cases where the build cache might be inconsistent.
+    """
+    try:
+        print("Checking Playwright browsers...")
+        subprocess.run(["playwright", "install", "chromium"], check=True)
+        print("Playwright browsers are ready.")
+    except Exception as e:
+        print(f"Failed to install browsers: {e}")
 
 @app.post("/callback")
 async def callback(request: Request):
