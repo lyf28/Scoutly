@@ -32,7 +32,11 @@ async def run_agent_and_reply(user_id: str, domain: str = "aiops"):
         # Phase 1: Discovery (Returns JSON string)
         result_json = await agent.run_discovery()
         
-        # Convert JSON to Flex Message UI
+
+        if result_json is None:
+            line_bot_api.push_message(user_id, TextSendMessage(text="查無相關論文，請稍後再試或更換關鍵字。"))
+            return
+
         flex_msg = generate_scout_flex(domain.upper(), result_json)
         
         line_bot_api.push_message(user_id, flex_msg)
@@ -60,19 +64,6 @@ async def run_summary_and_reply(user_id: str, url: str):
         )
     except Exception as e:
         line_bot_api.push_message(user_id, TextSendMessage(text=f"❌ Summary Error: {str(e)}"))
-
-@app.on_event("startup")
-async def startup_event():
-    """
-    Ensure Playwright browsers are installed on startup.
-    This handles cases where the build cache might be inconsistent.
-    """
-    try:
-        print("Checking Playwright browsers...")
-        subprocess.run(["playwright", "install", "chromium"], check=True)
-        print("Playwright browsers are ready.")
-    except Exception as e:
-        print(f"Failed to install browsers: {e}")
 
 @app.post("/callback")
 async def callback(request: Request):

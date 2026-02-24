@@ -32,11 +32,12 @@ class ScoutAgent:
         """
         # Force the LLM to return a valid JSON list of dictionaries
         task_description = (
-            f"Navigate to {self.config['sources'][0]['url']} and find the latest articles "
-            f"related to: {self.config['scouting_logic']['discovery_goal']}. "
-            "Extract the top 5 articles. "
-            "Return the result ONLY as a JSON list with keys: 'title' and 'url'. "
-            "The 'title' MUST be in Traditional Chinese."
+            f"Go to {self.config['url']}. "
+            f"Look for any articles that might be related to: {self.config['query']}. "
+            "If you find ANY articles, extract at least 3. "
+            "If no direct matches, extract the first 3 latest articles from the list. " # 增加保底機制
+            "Format the result as a JSON list of objects with 'title' and 'url' keys. "
+            "The 'title' should be translated to Traditional Chinese."
         )
 
         try:
