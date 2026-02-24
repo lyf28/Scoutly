@@ -13,17 +13,13 @@ class ScoutAgent:
     def __init__(self, domain_config):
         self.config = domain_config
         
-        self.llm = ChatOpenAI(
-            model="gpt-4o",
-            model_kwargs={"extra_body": {}} 
-        )
+        llm = ChatOpenAI(model="gpt-4o")
         
-        class WrappedLLM(ChatOpenAI):
-            @property
-            def provider(self):
-                return "openai"
-
-        self.llm = WrappedLLM(model="gpt-4o")
+        llm.__dict__['provider'] = 'openai' 
+        
+        setattr(llm, 'provider', 'openai')
+        
+        self.llm = llm
 
     async def run_discovery(self):
         """
