@@ -1,0 +1,26 @@
+domain: "AIOps"
+description: "Tracking latest AIOps papers and technical blog posts."
+
+# Seed websites for the agent to start scouting
+sources:
+  - name: "arXiv"
+    url: "https://arxiv.org/list/cs.AI/recent"
+  - name: "NVIDIA Blog"
+    url: "https://blogs.nvidia.com/blog/category/deep-learning/"
+
+# Agent scouting intelligence configuration
+scouting_logic:
+  # Phase 1: What to look for?
+  discovery_goal: "Identify articles related to AIOps, LLM observability, or GPU resource scheduling."
+  
+  # Phase 2: How to summarize?
+  summary_depth: "detailed"
+  focus_points:
+    - "Core technical architecture"
+    - "Specific pain points addressed"
+    - "Impact on DevOps workflows"
+
+# UI/UX representation settings
+ui_display:
+  color_code: "#2ECC71"
+  icon: "🤖"
