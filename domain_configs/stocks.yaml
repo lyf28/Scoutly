@@ -1,0 +1,19 @@
+domain: "Stocks"
+display_name: "台股情報 (Stocks)"
+description: "Monitoring latest Taiwan stock market trends and analysis."
+
+sources:
+  - name: "Anue (鉅亨網)"
+    url: "https://news.cnyes.com/news/cat/tw_stock"
+
+scouting_logic:
+  discovery_goal: "Identify news related to semiconductor industry or AI server supply chain."
+  summary_depth: "detailed"
+  focus_points:
+    - "Specific stock tickers mentioned"
+    - "Revenue growth or financial projections"
+    - "Market sentiment (Bullish/Bearish)"
+
+ui_display:
+  color_code: "#E74C3C"
+  icon: "📈"

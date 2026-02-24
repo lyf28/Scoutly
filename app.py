@@ -77,23 +77,29 @@ async def callback(request: Request):
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event: MessageEvent):
-    """
-    Handles user text commands.
-    """
-    user_text = event.message.text
+    user_text = event.message.text.lower()
     user_id = event.source.user_id
     
-    if user_text.lower() == "scout aiops":
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text="🚀 Agent dispatched! I'll send you the report once it's ready.")
-        )
-        asyncio.create_task(run_agent_and_reply(user_id, "aiops"))
-    else:
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text="Welcome! Type 'scout aiops' to start monitoring.")
-        )
+    # Dynamic domain matching: "scout aiops" or "scout stocks"
+    if user_text.startswith("scout "):
+        target_domain = user_text.split(" ")[1] # Extract 'aiops' or 'stocks'
+        
+        try:
+            # Pre-check if config exists
+            loader = ConfigLoader()
+            if target_domain in loader.list_available_domains():
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text=f"🚀 Dispatching {target_domain.upper()} Agent...")
+                )
+                asyncio.create_task(run_agent_and_reply(user_id, target_domain))
+            else:
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text=f"❌ Domain '{target_domain}' not supported yet.")
+                )
+        except Exception as e:
+            print(f"Error: {e}")
 
 @handler.add(PostbackEvent)
 def handle_postback(event: PostbackEvent):
