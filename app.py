@@ -18,42 +18,47 @@ line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
 
 @app.post("/callback")
-async def callback(request: Request):
+async def run_agent_and_reply(user_id, reply_token, domain="aiops"):
     """
-    Webhook endpoint for LINE to send events.
-    Verifies the signature to ensure requests are from LINE.
+    Background task to run the agent and send the result via push message.
     """
-    signature = request.headers.get('X-Line-Signature')
-    body = await request.body()
-    
     try:
-        handler.handle(body.decode('utf-8'), signature)
-    except InvalidSignatureError:
-        raise HTTPException(status_code=400, detail="Invalid signature")
-    
-    return 'OK'
+        loader = ConfigLoader()
+        config = loader.load_config(domain)
+        agent = ScoutAgent(config)
+        
+        # This takes 30-60 seconds
+        result = await agent.run_discovery()
+        
+        # After discovery, we use 'push_message' because the reply_token will expire
+        line_bot_api.push_message(
+            user_id,
+            TextSendMessage(text=f"🔍 Scouting Report for {domain.upper()}:\n\n{result}")
+        )
+    except Exception as e:
+        line_bot_api.push_message(
+            user_id,
+            TextSendMessage(text=f"❌ An error occurred: {str(e)}")
+        )
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    """
-    Handle incoming text messages from users.
-    """
     user_text = event.message.text
+    user_id = event.source.user_id
     
-    # Simple logic to trigger the agent
     if user_text.lower() == "scout aiops":
+        # 1. Reply immediately to satisfy LINE's timeout constraint
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text="Agent is starting to scout AIOps... Please wait.")
+            TextSendMessage(text="🚀 Agent dispatched! I'll send you the report once it's ready.")
         )
-        # TODO: Integration with ScoutAgent in async manner
+        
+        # 2. Start the agent in the background
+        # We use the running event loop to create a background task
+        loop = asyncio.get_event_loop()
+        loop.create_task(run_agent_and_reply(user_id, event.reply_token))
     else:
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=f"You said: {user_text}\nType 'scout aiops' to start.")
+            TextSendMessage(text="Welcome! Type 'scout aiops' to start monitoring.")
         )
-
-if __name__ == "__main__":
-    import uvicorn
-    # Run the server locally on port 8000
-    uvicorn.run(app, host="0.0.0.0", port=8000)
