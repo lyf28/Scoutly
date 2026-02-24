@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from browser_use import Agent
 from config_loader import ConfigLoader
+from pydantic import Field
 
 # Load environment variables (API Keys)
 load_dotenv()
@@ -13,13 +14,10 @@ class ScoutAgent:
     def __init__(self, domain_config):
         self.config = domain_config
         
-        llm = ChatOpenAI(model="gpt-4o")
-        
-        llm.__dict__['provider'] = 'openai' 
-        
-        setattr(llm, 'provider', 'openai')
-        
-        self.llm = llm
+        class FixedChatOpenAI(ChatOpenAI):
+            provider: str = Field(default="openai")
+
+        self.llm = FixedChatOpenAI(model="gpt-4o")
 
     async def run_discovery(self):
         """
