@@ -34,13 +34,31 @@ async def run_agent_and_reply(user_id: str, domain: str = "aiops"):
         # Convert JSON to Flex Message UI
         flex_msg = generate_scout_flex(domain.upper(), result_json)
         
-        # Push the elegant UI to the user
         line_bot_api.push_message(user_id, flex_msg)
     except Exception as e:
         line_bot_api.push_message(
             user_id, 
             TextSendMessage(text=f"❌ Error during {domain} scouting: {str(e)}")
         )
+
+async def run_summary_and_reply(user_id: str, url: str):
+    """
+    Background task to analyze a specific article and push the summary.
+    """
+    try:
+        loader = ConfigLoader()
+        config = loader.load_config("aiops")
+        agent = ScoutAgent(config)
+        
+        # Phase 2: Deep Dive (Uses Vision/LLM reasoning)
+        summary = await agent.run_summary(url)
+        
+        line_bot_api.push_message(
+            user_id,
+            TextSendMessage(text=f"📝 **Deep Dive Analysis**\n\n{summary}")
+        )
+    except Exception as e:
+        line_bot_api.push_message(user_id, TextSendMessage(text=f"❌ Summary Error: {str(e)}"))
 
 @app.post("/callback")
 async def callback(request: Request):
@@ -58,7 +76,7 @@ async def callback(request: Request):
     return 'OK'
 
 @handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
+def handle_message(event: MessageEvent):
     """
     Handles user text commands.
     """
@@ -66,12 +84,10 @@ def handle_message(event):
     user_id = event.source.user_id
     
     if user_text.lower() == "scout aiops":
-        # Reply immediately to avoid LINE timeout
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text="🚀 Agent dispatched! I'll send you the report once it's ready.")
         )
-        # Offload the heavy work to a background task
         asyncio.create_task(run_agent_and_reply(user_id, "aiops"))
     else:
         line_bot_api.reply_message(
@@ -79,7 +95,23 @@ def handle_message(event):
             TextSendMessage(text="Welcome! Type 'scout aiops' to start monitoring.")
         )
 
-# NOTE: We will add @handler.add(PostbackEvent) here in the next step to handle "Deep Dive" buttons
+@handler.add(PostbackEvent)
+def handle_postback(event: PostbackEvent):
+    """
+    Handles button clicks from Flex Messages (Deep Dive).
+    """
+    user_id = event.source.user_id
+    postback_data = event.postback.data # e.g., "action=summarize&url=https://..."
+    
+    params = dict(item.split('=') for item in postback_data.split('&'))
+    
+    if params.get('action') == 'summarize':
+        target_url = params.get('url')
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text="🧠 Analyzing the article... This may take a minute.")
+        )
+        asyncio.create_task(run_summary_and_reply(user_id, target_url))
 
 if __name__ == "__main__":
     import uvicorn

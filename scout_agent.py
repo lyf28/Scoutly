@@ -41,15 +41,23 @@ class ScoutAgent:
 
     async def run_summary(self, url: str):
         """
-        Phase 2: Perform deep-dive summary for a specific URL with visual context.
+        Phase 2: Perform deep-dive summary for a specific URL.
+        Utilizes the model's reasoning capabilities to analyze page content.
         """
-        # Placeholder for summary logic (to be implemented with Vision)
-        summary_prompt = (
-            f"Analyze the content at {url}. "
-            f"Focus points: {', '.join(self.config['scouting_logic']['focus_points'])}. "
-            f"Language: Traditional Chinese."
+        task_description = (
+            f"Navigate to {url}. Read the main content of this page. "
+            f"Provide a concise summary focusing on: {', '.join(self.config['scouting_logic']['focus_points'])}. "
+            f"If there are technical diagrams or code snippets, please explain them. "
+            f"IMPORTANT: Output the summary in Traditional Chinese with Markdown formatting."
         )
-        pass
+
+        try:
+            # Using browser-use to analyze the page
+            agent = Agent(task=task_description, llm=self.llm)
+            history = await agent.run()
+            return history.final_result()
+        except Exception as e:
+            raise Exception(f"Summary failed: {str(e)}")
 
 async def main():
     """
