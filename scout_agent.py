@@ -9,14 +9,18 @@ from config_loader import ConfigLoader
 load_dotenv()
 
 class ScoutAgent:
-    """
-    The core agent responsible for navigating websites and extracting information.
-    Leverages browser-use for autonomous web navigation.
-    """
     def __init__(self, domain_config):
         self.config = domain_config
-        # It's better to keep LLM version flexible
-        self.llm = ChatOpenAI(model="gpt-4o")
+        # Initialize the LLM
+        llm = ChatOpenAI(model="gpt-4o")
+        
+        # --- Fix for 'ChatOpenAI' object has no attribute 'provider' ---
+        # Manually inject the provider attribute that browser-use expects
+        if not hasattr(llm, 'provider'):
+            llm.provider = 'openai' 
+        # --------------------------------------------------------------
+        
+        self.llm = llm
 
     async def run_discovery(self):
         """
