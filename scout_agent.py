@@ -14,10 +14,17 @@ class ScoutAgent:
     def __init__(self, domain_config):
         self.config = domain_config
         
-        class FixedChatOpenAI(ChatOpenAI):
-            provider: str = Field(default="openai")
+        real_llm = ChatOpenAI(model="gpt-4o")
+        
+        class LLMProxy:
+            def __init__(self, llm):
+                self.llm = llm
+                self.provider = "openai"
 
-        self.llm = FixedChatOpenAI(model="gpt-4o")
+            def __getattr__(self, name):
+                return getattr(self.llm, name)
+
+        self.llm = LLMProxy(real_llm)
 
     async def run_discovery(self):
         """
