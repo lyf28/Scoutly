@@ -47,9 +47,19 @@ class ScoutAgent:
 
         try:
             agent = Agent(task=task_description, llm=self.llm)
-            history = await agent.run()
-            # The result is now a string representing a JSON list
-            return history.final_result()
+            history = await agent.run(max_steps=15)
+
+            # Primary: agent explicitly called done() with a result
+            result = history.final_result()
+
+            # Fallback: agent ran out of steps without calling done —
+            # try to recover JSON from the last extracted content
+            if not result:
+                extracted = history.extracted_content()
+                if extracted:
+                    result = extracted[-1]
+
+            return result
         except Exception as e:
             raise Exception(f"Discovery failed: {str(e)}")
 
@@ -66,10 +76,16 @@ class ScoutAgent:
         )
 
         try:
-            # Using browser-use to analyze the page
             agent = Agent(task=task_description, llm=self.llm)
-            history = await agent.run()
-            return history.final_result()
+            history = await agent.run(max_steps=15)
+
+            result = history.final_result()
+            if not result:
+                extracted = history.extracted_content()
+                if extracted:
+                    result = extracted[-1]
+
+            return result
         except Exception as e:
             raise Exception(f"Summary failed: {str(e)}")
 
