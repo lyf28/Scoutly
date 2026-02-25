@@ -1,11 +1,9 @@
 import os
 import asyncio
-import langchain_core
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
 from browser_use import Agent
+from browser_use.llm import ChatOpenAI
 from config_loader import ConfigLoader
-from pydantic import Field
 
 # Load environment variables (API Keys)
 load_dotenv()
@@ -13,18 +11,7 @@ load_dotenv()
 class ScoutAgent:
     def __init__(self, domain_config):
         self.config = domain_config
-        
-        real_llm = ChatOpenAI(model="gpt-4o")
-        
-        class LLMProxy:
-            def __init__(self, llm):
-                self.llm = llm
-                self.provider = "openai"
-
-            def __getattr__(self, name):
-                return getattr(self.llm, name)
-
-        self.llm = LLMProxy(real_llm)
+        self.llm = ChatOpenAI(model="gpt-4o")
 
     async def run_discovery(self):
         """
