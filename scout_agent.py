@@ -46,7 +46,9 @@ class ScoutAgent:
         )
 
         try:
-            agent = Agent(task=task_description, llm=self.llm)
+            # use_vision=False simplifies the output schema and prevents
+            # Pydantic 'items' validation failures in browser-use 0.11.x
+            agent = Agent(task=task_description, llm=self.llm, use_vision=False)
             history = await agent.run(max_steps=15)
 
             # Primary: agent explicitly called done() with a result
@@ -76,7 +78,7 @@ class ScoutAgent:
         )
 
         try:
-            agent = Agent(task=task_description, llm=self.llm)
+            agent = Agent(task=task_description, llm=self.llm, use_vision=False)
             history = await agent.run(max_steps=15)
 
             result = history.final_result()
