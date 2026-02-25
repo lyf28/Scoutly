@@ -124,6 +124,14 @@ def handle_postback(event: PostbackEvent):
         )
         asyncio.create_task(run_summary_and_reply(user_id, target_url))
 
+@app.get("/")
+async def root():
+    return {"status": "Service is running", "agent": "Scoutly Universal AI Scout"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
