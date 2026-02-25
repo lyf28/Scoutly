@@ -24,28 +24,29 @@ class ScoutAgent:
         source_url = self.config['sources'][0]['url']
         discovery_goal = self.config['scouting_logic']['discovery_goal']
 
-        # Force the LLM to return a valid JSON list of dictionaries
+        # arXiv article URLs are always https://arxiv.org/abs/{id} —
+        # tell the agent to extract IDs and construct URLs directly,
+        # so it never needs to click individual articles to find their links.
         task_description = (
             f"Go to {source_url}. "
-            f"Look for any articles that might be related to: {discovery_goal}. "
-            "If you find ANY articles, extract at least 3. "
-            "If no direct matches, extract the first 3 latest articles from the list. "
-            "Format the result as a JSON list of objects with EXACTLY two keys: 'title' and 'url'. "
-            "The 'title' MUST be in English. "
-            "The 'url' MUST be a valid absolute URL starting with 'https://'. "
-            "Return ONLY the JSON list, no extra text."
+            f"Look for any articles related to: {discovery_goal}. "
+            "If you find ANY matching articles, extract up to 5. "
+            "If no direct matches, extract the first 3 articles from the list. "
+            "IMPORTANT: Each article has an arXiv ID like '2602.12345'. "
+            "Construct each article URL as 'https://arxiv.org/abs/{arxiv_id}'. "
+            "Do NOT click each article to find its URL — construct it directly. "
+            "Return ONLY a JSON list with keys 'title' and 'url'. No extra text."
         )
 
         try:
-            # use_vision=False + max_actions_per_step=1 forces simpler per-step
-            # output, preventing Pydantic 'items' schema validation failures
             agent = Agent(
                 task=task_description,
                 llm=self.llm,
                 use_vision=False,
                 max_actions_per_step=1,
+                use_judge=False,  # skip post-run LLM judge call (~30s saved)
             )
-            history = await agent.run(max_steps=15)
+            history = await agent.run(max_steps=10)
 
             # Primary: agent explicitly called done() with a result
             result = history.final_result()
@@ -79,8 +80,9 @@ class ScoutAgent:
                 llm=self.llm,
                 use_vision=False,
                 max_actions_per_step=1,
+                use_judge=False,  # skip post-run LLM judge call
             )
-            history = await agent.run(max_steps=15)
+            history = await agent.run(max_steps=10)
 
             result = history.final_result()
             if not result:
