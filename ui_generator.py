@@ -85,28 +85,50 @@ def generate_summary_flex(summary_text: str) -> FlexSendMessage:
     for i, (heading, body) in enumerate(sections):
         if i > 0:
             body_contents.append(SeparatorComponent(margin='lg'))
+        # Section heading
         body_contents.append(
-            TextComponent(text=heading, weight='bold', size='sm', color='#27ACB2', margin='lg')
+            TextComponent(text=heading, weight='bold', size='sm', color='#1A6B72', margin='lg')
         )
-        body_contents.append(
-            TextComponent(text=body, size='sm', wrap=True, margin='sm', color='#444444')
-        )
+        # Parse bullets if present, otherwise split by sentence
+        lines = [l.strip() for l in body.splitlines() if l.strip()]
+        bullets = []
+        for line in lines:
+            if line.startswith('- '):
+                bullets.append(line[2:])
+            elif line:
+                # split prose by Chinese period or newline into short chunks
+                bullets.extend([s.strip() for s in re.split(r'[。\.]\s*', line) if s.strip()])
+
+        for bullet in bullets:
+            body_contents.append(
+                BoxComponent(
+                    layout='horizontal',
+                    margin='sm',
+                    contents=[
+                        TextComponent(text='·', size='sm', color='#1A6B72',
+                                      flex=0, gravity='top'),
+                        TextComponent(text=bullet, size='sm', wrap=True,
+                                      color='#333333', margin='sm', flex=1)
+                    ]
+                )
+            )
 
     # Fallback if no sections parsed
     if not body_contents:
-        cleaned = re.sub(r'#+\s*', '', text)  # strip heading markers
-        cleaned = re.sub(r'\*+', '', cleaned)  # strip asterisks
+        cleaned = re.sub(r'#+\s*', '', text)
+        cleaned = re.sub(r'\*+', '', cleaned)
         body_contents = [TextComponent(text=cleaned, size='sm', wrap=True)]
 
     bubble = BubbleContainer(
+        size='giga',
         header=BoxComponent(
             layout='vertical',
-            backgroundColor='#27ACB2',
+            backgroundColor='#1A6B72',
             paddingAll='lg',
             contents=[
-                TextComponent(text='📝 Deep Dive', size='xs', color='#ffffff80'),
+                TextComponent(text='📝 Deep Dive', size='xs', color='#ffffffaa'),
                 TextComponent(
-                    text=title, weight='bold', size='md',
+                    text=title, weight='bold', size='sm',
                     color='#ffffff', wrap=True, margin='sm'
                 )
             ]
@@ -114,6 +136,7 @@ def generate_summary_flex(summary_text: str) -> FlexSendMessage:
         body=BoxComponent(
             layout='vertical',
             paddingAll='lg',
+            spacing='md',
             contents=body_contents
         )
     )

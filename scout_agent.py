@@ -67,11 +67,16 @@ class ScoutAgent:
         Phase 2: Perform deep-dive summary for a specific URL.
         Utilizes the model's reasoning capabilities to analyze page content.
         """
+        focus = ', '.join(self.config['scouting_logic']['focus_points'])
         task_description = (
             f"Navigate to {url}. Read the main content of this page. "
-            f"Provide a concise summary focusing on: {', '.join(self.config['scouting_logic']['focus_points'])}. "
-            f"If there are technical diagrams or code snippets, please explain them. "
-            f"IMPORTANT: Output the summary in Traditional Chinese with Markdown formatting."
+            f"Write a summary in Traditional Chinese focusing on: {focus}. "
+            "Format rules (MUST follow exactly):\n"
+            "1. Start with a ## title line (the paper name in English).\n"
+            "2. Add 2-4 sections using ### headings in Traditional Chinese.\n"
+            "3. Under each section, write 2-4 bullet points starting with '- '.\n"
+            "4. Each bullet point must be ONE short sentence (max 25 Chinese characters).\n"
+            "5. No paragraph text — bullets only under each section."
         )
 
         try:
