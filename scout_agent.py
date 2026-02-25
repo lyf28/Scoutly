@@ -11,7 +11,11 @@ load_dotenv()
 class ScoutAgent:
     def __init__(self, domain_config):
         self.config = domain_config
-        self.llm = ChatOpenAI(model="gpt-4o")
+        # remove_min_items_from_schema=True strips the `minItems` constraint
+        # from the AgentOutput JSON schema before sending to OpenAI.
+        # OpenAI strict structured-output mode does not support minItems, so
+        # keeping it causes every step to fail with an API schema error ("items").
+        self.llm = ChatOpenAI(model="gpt-4o", remove_min_items_from_schema=True)
 
     async def run_discovery(self):
         """
