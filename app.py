@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 # Import our custom modules
 from config_loader import ConfigLoader
 from scout_agent import ScoutAgent
-from ui_generator import generate_scout_flex
+from ui_generator import generate_scout_flex, generate_summary_flex
 
 load_dotenv()
 
@@ -58,10 +58,8 @@ async def run_summary_and_reply(user_id: str, url: str):
         # Phase 2: Deep Dive (Uses Vision/LLM reasoning)
         summary = await agent.run_summary(url)
         
-        line_bot_api.push_message(
-            user_id,
-            TextSendMessage(text=f"📝 **Deep Dive Analysis**\n\n{summary}")
-        )
+        flex_msg = generate_summary_flex(summary)
+        line_bot_api.push_message(user_id, flex_msg)
     except Exception as e:
         line_bot_api.push_message(user_id, TextSendMessage(text=f"❌ Summary Error: {str(e)}"))
 
