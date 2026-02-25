@@ -7,6 +7,11 @@ def generate_scout_flex(domain_name, articles_json_str):
     import json
     articles = json.loads(articles_json_str)
     
+    bubbles = []
+    for item in articles:
+        title = item.get('title', 'Untitled Paper') 
+        url = item.get('url') or item.get('link') or "https://arxiv.org"
+    
     # Create list items for the Flex Message
     contents = []
     for art in articles:
