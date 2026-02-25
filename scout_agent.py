@@ -30,14 +30,19 @@ class ScoutAgent:
         """
         Phase 1: Discover articles and return structured JSON data.
         """
+        source_url = self.config['sources'][0]['url']
+        discovery_goal = self.config['scouting_logic']['discovery_goal']
+
         # Force the LLM to return a valid JSON list of dictionaries
         task_description = (
-            f"Go to {self.config['url']}. "
-            f"Look for any articles that might be related to: {self.config['query']}. "
+            f"Go to {source_url}. "
+            f"Look for any articles that might be related to: {discovery_goal}. "
             "If you find ANY articles, extract at least 3. "
-            "If no direct matches, extract the first 3 latest articles from the list. " # 增加保底機制
-            "Format the result as a JSON list of objects with 'title' and 'url' keys. "
-            "The 'title' should be translated to Traditional Chinese."
+            "If no direct matches, extract the first 3 latest articles from the list. "
+            "Format the result as a JSON list of objects with EXACTLY two keys: 'title' and 'url'. "
+            "The 'title' MUST be in English. "
+            "The 'url' MUST be a valid absolute URL starting with 'https://'. "
+            "Return ONLY the JSON list, no extra text."
         )
 
         try:

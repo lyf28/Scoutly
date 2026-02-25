@@ -5,27 +5,35 @@ def generate_scout_flex(domain_name, articles_json_str):
     Generate a LINE Flex Message from the structured JSON data.
     """
     import json
-    articles = json.loads(articles_json_str)
-    
-    bubbles = []
-    for item in articles:
-        title = item.get('title', 'Untitled Paper') 
-        url = item.get('url') or item.get('link') or "https://arxiv.org"
-    
+
+    # Safely parse – handle both raw JSON list and wrapped strings
+    try:
+        articles = json.loads(articles_json_str)
+    except (json.JSONDecodeError, TypeError):
+        articles = []
+
+    if not articles:
+        from linebot.models import TextSendMessage
+        return TextSendMessage(text="No results found. Please try again later.")
+
     # Create list items for the Flex Message
     contents = []
     for art in articles:
+        # Use .get() with safe fallbacks to prevent KeyError
+        title = art.get('title') or art.get('name') or 'Untitled Article'
+        url = art.get('url') or art.get('link') or 'https://arxiv.org'
+
         item = BoxComponent(
             layout='vertical',
             margin='lg',
             contents=[
-                TextComponent(text=art['title'], weight='bold', size='md', wrap=True),
+                TextComponent(text=title, weight='bold', size='md', wrap=True),
                 ButtonComponent(
                     style='link',
                     height='sm',
                     action=PostbackAction(
-                        label='深入了解 (Deep Dive)',
-                        data=f"action=summarize&url={art['url']}"
+                        label='Deep Dive ➜',
+                        data=f"action=summarize&url={url}"
                     )
                 )
             ]
