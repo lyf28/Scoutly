@@ -1,15 +1,15 @@
 import re
+import json
+from urllib.parse import urlencode
 from linebot.models import (
     FlexSendMessage, BubbleContainer, BoxComponent,
-    TextComponent, ButtonComponent, PostbackAction, SeparatorComponent
+    TextComponent, ButtonComponent, PostbackAction, SeparatorComponent, URIAction
 )
 
-def generate_scout_flex(domain_name, articles_json_str):
+def generate_scout_flex(domain_name: str, articles_json_str: str, domain_key: str = 'aiops'):
     """
     Generate a LINE Flex Message from the structured JSON data.
     """
-    import json
-
     # Safely parse – handle both raw JSON list and wrapped strings
     try:
         articles = json.loads(articles_json_str)
@@ -25,34 +25,52 @@ def generate_scout_flex(domain_name, articles_json_str):
     for art in articles:
         # Use .get() with safe fallbacks to prevent KeyError
         title = art.get('title') or art.get('name') or 'Untitled Article'
-        url = art.get('url') or art.get('link') or 'https://arxiv.org'
+        url   = art.get('url')   or art.get('link') or 'https://arxiv.org'
+
+        # Embed domain_key so Deep Dive uses the right focus points
+        postback_data = urlencode({'action': 'summarize', 'domain': domain_key, 'url': url})
 
         item = BoxComponent(
             layout='vertical',
             margin='lg',
+            spacing='sm',
             contents=[
-                TextComponent(text=title, weight='bold', size='md', wrap=True),
-                ButtonComponent(
-                    style='link',
-                    height='sm',
-                    action=PostbackAction(
-                        label='Deep Dive ➜',
-                        data=f"action=summarize&url={url}"
-                    )
+                TextComponent(text=title, weight='bold', size='sm', wrap=True),
+                BoxComponent(
+                    layout='horizontal',
+                    contents=[
+                        ButtonComponent(
+                            style='link', height='sm', flex=1,
+                            action=URIAction(label='開啟 ↗', uri=url)
+                        ),
+                        ButtonComponent(
+                            style='primary', height='sm', flex=1,
+                            color='#1A6B72',
+                            action=PostbackAction(label='Deep Dive ➜', data=postback_data)
+                        ),
+                    ]
                 )
             ]
         )
         contents.append(item)
+        contents.append(SeparatorComponent(margin='md'))
 
-    # Wrap in a Bubble container
+    # Remove trailing separator
+    if contents and isinstance(contents[-1], SeparatorComponent):
+        contents.pop()
+
     bubble = BubbleContainer(
+        size='giga',
         header=BoxComponent(
             layout='vertical',
-            contents=[TextComponent(text=f"🔍 {domain_name} Report", weight='bold', size='xl')]
+            backgroundColor='#1A6B72',
+            paddingAll='lg',
+            contents=[TextComponent(text=f'🔍 {domain_name} Scout Report',
+                                    weight='bold', size='lg', color='#ffffff')]
         ),
-        body=BoxComponent(layout='vertical', contents=contents)
+        body=BoxComponent(layout='vertical', paddingAll='lg', contents=contents)
     )
-    
+
     return FlexSendMessage(alt_text=f"{domain_name} Report", contents=bubble)
 
 
@@ -142,3 +160,57 @@ def generate_summary_flex(summary_text: str) -> FlexSendMessage:
     )
 
     return FlexSendMessage(alt_text='Deep Dive Analysis', contents=bubble)
+
+
+def generate_help_flex(available_domains: list[str]) -> FlexSendMessage:
+    """
+    Welcome / help card shown when user sends 'help' or an unrecognised message.
+    """
+    domain_rows = []
+    for d in available_domains:
+        domain_rows.append(
+            BoxComponent(
+                layout='horizontal',
+                margin='sm',
+                contents=[
+                    TextComponent(text='·', size='sm', color='#7B61FF', flex=0),
+                    TextComponent(text=d.upper(), size='sm', weight='bold',
+                                  color='#333333', margin='sm', flex=1),
+                ]
+            )
+        )
+
+    bubble = BubbleContainer(
+        size='giga',
+        header=BoxComponent(
+            layout='vertical',
+            backgroundColor='#7B61FF',
+            paddingAll='lg',
+            contents=[
+                TextComponent(text='🤖 Scoutly', weight='bold', size='xl', color='#ffffff'),
+                TextComponent(text='AI Research Scout', size='xs', color='#ffffffaa', margin='sm'),
+            ]
+        ),
+        body=BoxComponent(
+            layout='vertical',
+            paddingAll='lg',
+            spacing='md',
+            contents=[
+                TextComponent(text='你可以這樣說：', weight='bold', size='sm', color='#7B61FF'),
+                TextComponent(
+                    text='「幫我找 AIOps 相關論文」\n「最新量子計算研究」\n「scout stocks」\n"find papers on LLM agents"',
+                    size='sm', wrap=True, color='#444444', margin='sm'
+                ),
+                SeparatorComponent(margin='lg'),
+                TextComponent(text='已設定的領域：', weight='bold', size='sm',
+                              color='#7B61FF', margin='lg'),
+                *domain_rows,
+                SeparatorComponent(margin='lg'),
+                TextComponent(
+                    text='任何自訂主題也可以直接說，會自動搜尋 arXiv。',
+                    size='xs', wrap=True, color='#888888', margin='lg'
+                ),
+            ]
+        )
+    )
+    return FlexSendMessage(alt_text='Scoutly Help', contents=bubble)
