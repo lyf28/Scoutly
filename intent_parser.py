@@ -24,23 +24,31 @@ def _get_client() -> OpenAI:
 
 def parse_intent(user_text: str) -> dict | None:
     """
-    Returns a config dict ready to pass into ScoutAgent, or None if the
-    message is not a scouting request at all.
+    Returns a config dict ready to pass into ScoutAgent, or None only for
+    pure greetings / thank-you / uninterpretable messages.
 
-    The returned dict always has the same shape as a YAML domain config.
+    Design principle: be aggressive — if there is ANY noun/topic in the
+    message, treat it as a scout request and search arXiv for it.
     """
     loader = ConfigLoader()
     available = loader.list_available_domains()  # e.g. ['aiops', 'stocks']
 
     system_prompt = (
-        "You are a research assistant that extracts scouting intent from user messages.\n"
-        "User may write in any language (Chinese, English, etc.).\n\n"
+        "You are a research topic extractor for an AI paper scouting bot.\n"
+        "The user sends a message in any language. Your job:\n"
+        "1. Decide if there is ANY topic worth searching — be VERY generous.\n"
+        "   Only set is_scout_request=false for pure greetings (hi/hello/謝謝/你好),\n"
+        "   empty messages, or messages that are clearly not about any subject.\n"
+        "2. Extract the core English keyword(s) for the topic.\n"
+        "3. Write a 1-2 sentence English arXiv search description.\n\n"
         "Reply with JSON only — no extra text. Format:\n"
-        '{"is_scout_request": true/false, "topic": "<short English keyword>", '
-        '"matched_domain": "<domain_key or null>", "search_query": "<2-sentence English arXiv search description>"}\n\n'
-        f"Known domain keys: {available}\n"
-        "Set matched_domain to the best matching key if the topic clearly maps to one, else null.\n"
-        "If the message is not asking to find/research/scout anything, set is_scout_request=false."
+        '{"is_scout_request": true/false, "topic": "<short English keyword(s)>", '
+        '"matched_domain": "<domain_key or null>", '
+        '"search_query": "<1-2 sentence arXiv search description>"}\n\n'
+        f"Known domain keys (use if topic clearly matches): {available}\n"
+        "Examples of is_scout_request=true: '量子計算', 'transformer architecture',\n"
+        "'2024 LLM papers', '幫我找強化學習', 'latest GPU research', 'drug discovery AI'\n"
+        "Examples of is_scout_request=false: '你好', 'hello', '謝謝', 'ok', '好的'"
     )
 
     response = _get_client().chat.completions.create(
@@ -67,13 +75,17 @@ def parse_intent(user_text: str) -> dict | None:
         return {"_domain_key": matched, **loader.load_config(matched)}
 
     # Otherwise build a dynamic config for arXiv search
-    topic = parsed.get("topic", "AI research")
-    search_query = parsed.get("search_query", f"Recent papers about {topic}.")
+    topic = parsed.get("topic") or user_text[:60]
+    search_query = parsed.get("search_query") or f"Recent papers about {topic}."
+    arxiv_query = topic.replace(" ", "+")
 
     return {
         "_domain_key": f"custom:{topic}",
         "domain": topic,
-        "sources": [{"name": "arXiv", "url": "https://arxiv.org/search/?searchtype=all&query=" + topic.replace(" ", "+")}],
+        "sources": [{
+            "name": "arXiv",
+            "url": f"https://arxiv.org/search/?searchtype=all&query={arxiv_query}&order=-announced_date_first"
+        }],
         "scouting_logic": {
             "discovery_goal": search_query,
             "summary_depth": "detailed",

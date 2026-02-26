@@ -24,18 +24,29 @@ class ScoutAgent:
         source_url = self.config['sources'][0]['url']
         discovery_goal = self.config['scouting_logic']['discovery_goal']
 
-        # arXiv article URLs are always https://arxiv.org/abs/{id} —
-        # tell the agent to extract IDs and construct URLs directly,
-        # so it never needs to click individual articles to find their links.
+        # Build the task prompt, adapting the URL hint to the source type.
+        # arXiv pages (both list and search) always have IDs like 2602.12345 —
+        # instruct the agent to construct URLs directly instead of clicking each link.
+        is_arxiv = 'arxiv.org' in source_url
+        if is_arxiv:
+            url_hint = (
+                "IMPORTANT: Every article shows an arXiv ID (e.g. '2602.12345'). "
+                "Construct each article URL as 'https://arxiv.org/abs/{arxiv_id}'. "
+                "Do NOT click any article — construct URLs directly from the IDs you see."
+            )
+        else:
+            url_hint = (
+                "For each article, extract its full absolute URL. "
+                "If the page shows relative URLs, prepend the domain to make them absolute."
+            )
+
         task_description = (
             f"Go to {source_url}. "
             f"Look for any articles related to: {discovery_goal}. "
-            "If you find ANY matching articles, extract up to 5. "
-            "If no direct matches, extract the first 3 articles from the list. "
-            "IMPORTANT: Each article has an arXiv ID like '2602.12345'. "
-            "Construct each article URL as 'https://arxiv.org/abs/{arxiv_id}'. "
-            "Do NOT click each article to find its URL — construct it directly. "
-            "Return ONLY a JSON list with keys 'title' and 'url'. No extra text."
+            "If you find matching articles, extract up to 5. "
+            "If no direct matches, extract the first 3 articles listed. "
+            f"{url_hint} "
+            "Return ONLY a JSON list where each item has keys 'title' and 'url'. No extra text."
         )
 
         try:
